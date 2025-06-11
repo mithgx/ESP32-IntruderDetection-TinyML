@@ -11,8 +11,8 @@ app = Flask(__name__)
 app.config['STATIC_FOLDER'] = 'static'
 
 # Telegram Config
-TELEGRAM_BOT_TOKEN = '8124143416:AAFF7mcmLiKeAhobDkcLIR89FzxeipbwIpY'
-TELEGRAM_CHAT_ID = '734897504'
+TELEGRAM_BOT_TOKEN = 'YOUR_BOT_TOKEN'
+TELEGRAM_CHAT_ID = 'XYZ'
 ALERT_INTERVAL = 10  # seconds
 last_alert_time = 0
 LOCATION = "Lab Entrance"
