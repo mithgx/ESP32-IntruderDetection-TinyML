@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <!-- Add to <head> -->
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Roboto:wght@300;400;500&display=swap" rel="stylesheet">
+
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ESP32-CAM PERSON Detection</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+    :root {
+      --primary-red: #c51e3a;
+      --primary-dark-red: #8b0000;
+      --darker-red: #4a0000;
+      --accent-red: #ff3b30;
+      --accent-glow: rgba(255, 59, 48, 0.3);
+      --surface-black: #0a0a0a;
+      --surface-dark: rgba(0, 0, 0, 0.4);
+      --text-primary: #ffffff;
+      --text-secondary: rgba(255, 255, 255, 0.7);
+      --border-light: rgba(255, 255, 255, 0.1);
+      --border-accent: rgba(255, 59, 48, 0.5);
+      --blur-amount: 10px;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: 'Poppins',  -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+
+    body {
+      min-height: 100vh;
+      background: linear-gradient(135deg, var(--primary-dark-red), #1a0000, #000000);
+      position: relative;
+      overflow-x: hidden;
+      color: var(--text-primary);
+    }
+
+    body::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: radial-gradient(
+        circle at var(--x, 50%) var(--y, 50%), 
+        rgba(197, 30, 58, 0.2), 
+        transparent 40%
+      );
+      pointer-events: none;
+      transition: all 0.3s ease;
+      z-index: 0;
+    }
+
+    .sidebar {
+      width: 340px;
+      background: var(--surface-dark);
+      border-right: 1px solid var(--border-light);
+      padding: 2.5rem 1.5rem;
+      height: 100vh;
+      position: fixed;
+      backdrop-filter: blur(var(--blur-amount));
+      transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+      overflow-y: auto;
+      z-index: 90;
+    }
+
+    .sidebar-header {
+      margin-bottom: 2.5rem;
+      padding-bottom: rem;
+      border-bottom: 1px solid var(--border-light);
+      position: relative;
+    }
+
+    .sidebar-header h2 {
+      font-size: 1.5rem;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      position: relative;
+      display: inline-block;
+    }
+
+    .sidebar-header h2::after {
+      content: '';
+      position: absolute;
+      width: 6px;
+      height: 6px;
+      background: var(--accent-red);
+      border-radius: 50%;
+      right: -12px;
+      top: 50%;
+      transform: translateY(-50%);
+      box-shadow: 0 0 10px var(--accent-glow);
+      animation: pulse 2s infinite;
+    }
+
+    .credit-card {
+      background: rgba(255, 255, 255, 0.05);
+      padding: 1rem;
+      border-radius: 12px;
+      margin-bottom: 1rem;
+      backdrop-filter: blur(var(--blur-amount));
+      border: 1px solid var(--border-light);
+      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .credit-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(45deg, transparent, rgba(255, 59, 48, 0.1), transparent);
+      transform: translateX(-100%);
+      transition: transform 0.6s ease;
+    }
+
+    .credit-card:hover {
+      transform: translateY(-2px);
+      border-color: var(--border-accent);
+      box-shadow: 0 8px 20px rgba(255, 59, 48, 0.15);
+    }
+
+    .credit-card:hover::before {
+      transform: translateX(100%);
+    }
+
+    .main-content {
+      margin-left: 340px;
+      flex-grow: 1;
+      padding: 3rem 2rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      z-index: 1;
+      position: relative;
+    }
+
+    .camera-container {
+      background: var(--surface-dark);
+      padding: 1.25rem;
+      border-radius: 16px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+      width: 100%;
+      max-width: 640px;
+      border: 1px solid var(--border-light);
+      backdrop-filter: blur(var(--blur-amount));
+      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      margin-bottom: 2rem;
+    }
+
+    .camera-container:hover {
+      transform: scale(1.01);
+      border-color: var(--border-accent);
+    }
+
+    .camera-feed {
+      position: relative;
+      border-radius: 8px;
+      overflow: hidden;
+      background: rgba(0, 0, 0, 0.3);
+    }
+
+    .camera-feed img {
+      width: 100%;
+      height: auto;
+      display: block;
+      transition: all 0.3s ease;
+    }
+
+    .camera-feed.loading img {
+      filter: brightness(0.6) blur(2px);
+    }
+
+    .live-indicator {
+      position: absolute;
+      top: 1rem;
+      left: 1rem;
+      background: rgba(0, 0, 0, 0.7);
+      padding: 0.5rem 1rem;
+      border-radius: 20px;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      backdrop-filter: blur(5px);
+      animation: fadeInSlide 0.5s ease;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+    }
+
+    .live-dot {
+      width: 8px;
+      height: 8px;
+      background: var(--accent-red);
+      border-radius: 50%;
+      animation: pulse 2s infinite;
+    }
+
+    .status-container {
+      background: var(--surface-dark);
+      padding: 1.5rem;
+      border-radius: 16px;
+      width: 100%;
+      max-width: 640px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+      border: 1px solid var(--border-light);
+      backdrop-filter: blur(var(--blur-amount));
+      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .members-title {
+  font-size: 1.5rem;
+  color: white;
+  
+  margin-bottom: .5rem;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+}
+
+    .status-container.face-detected {
+      border-color: var(--accent-red);
+      box-shadow: 0 10px 30px var(--accent-glow);
+    }
+
+    .status-text {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 0.75rem;
+      font-size: 1.1rem;
+    }
+
+    .status-indicator {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--text-secondary);
+      transition: all 0.3s ease;
+      position: relative;
+    }
+
+    .status-indicator::before {
+      content: '';
+      position: absolute;
+      top: -4px;
+      left: -4px;
+      right: -4px;
+      bottom: -4px;
+      background: transparent;
+      border-radius: 50%;
+      z-index: -1;
+      transition: all 0.3s ease;
+    }
+
+    .status-indicator.active {
+      background: var(--accent-red);
+    }
+
+    .status-indicator.active::before {
+      background: var(--accent-glow);
+      animation: pulse 2s infinite;
+    }
+
+    .sidebar-toggle {
+      display: none;
+      position: fixed;
+      top: 1.5rem;
+      right: 1.5rem;
+      z-index: 100;
+      background: var(--surface-dark);
+      border: none;
+      width: 40px;
+      height: 40px;
+      border-radius: 8px;
+      cursor: pointer;
+      backdrop-filter: blur(var(--blur-amount));
+      border: 1px solid var(--border-light);
+      transition: all 0.3s ease;
+    }
+
+    .sidebar-toggle:hover {
+      background: rgba(255, 255, 255, 0.1);
+      border-color: var(--accent-red);
+    }
+
+    .sidebar-toggle span {
+      display: block;
+      position: absolute;
+      height: 2px;
+      width: 22px;
+      background: var(--text-primary);
+      opacity: 1;
+      left: 9px;
+      transform: rotate(0deg);
+      transition: 0.25s ease-in-out;
+    }
+
+    .role {
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.5);
+  display: block;
+  margin-bottom: 4px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+
+    .sidebar-toggle span:nth-child(1) { top: 14px; }
+    .sidebar-toggle span:nth-child(2) { top: 20px; }
+    .sidebar-toggle span:nth-child(3) { top: 26px; }
+
+    @keyframes pulse {
+      0% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.5; transform: scale(0.95); }
+      100% { opacity: 1; transform: scale(1); }
+    }
+
+    @keyframes fadeInSlide {
+      from { opacity: 0; transform: translateX(-20px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+
+    @media (max-width: 768px) {
+      .sidebar-toggle {
+        display: block;
+      }
+
+      .sidebar {
+        transform: translateX(-100%);
+      }
+
+      .sidebar.active {
+        transform: translateX(0);
+      }
+
+      .main-content {
+        margin-left: 0;
+        padding: 1.5rem 1rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <button class="sidebar-toggle" id="sidebarToggle">
+    <span></span>
+    <span></span>
+    <span></span>
+  </button>
+  
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <h2>INTRUDER-MONITOR</h2>
+      
+
+      <div class="credit-card">
+        <h4>Embedded C Project (BECE320E)  </h4>
+       
+      </div>
+    </div>
+    <h2 class="members-title">Members</h2>
+    <div class="credits">
+      <div class="credit-card">
+        <span class="role">Developer</span>
+        <h4>Mithilesh. S</h4>
+        <p> 22BEC1482</p>
+      </div>
+      <div class="credit-card">
+        <h4>Joel Martin. J</h4>
+        <p> 22BEC1504</p>
+      </div>
+      <div class="credit-card">
+        <h4>Lokeshwaran. N</h4>
+        <p> 22BEC1505</p>
+      </div>
+      <div class="credit-card">
+        <h4>Ashwini Trisha. S</h4>
+        <p> 22BEC1509</p>
+      </div>
+      <div class="credit-card">
+        <h4>Kartik. K</h4>
+        <p> 22BEC1032 </p>
+      </div>
+    </div>
+  </aside>
+
+  <main class="main-content">
+    <div class="camera-container">
+      <div class="camera-feed" id="cameraFeedContainer">
+        <img id="cameraFeed" src="/static/latest.jpg" alt="ESP32-CAM Feed">
+        <div class="live-indicator">
+          <div class="live-dot"></div>
+          <span>LIVE</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="status-container" id="statusContainer">
+      <div class="status-text">
+        <div id="statusIndicator" class="status-indicator"></div>
+        <span id="statusText">Checking for faces...</span>
+      </div>
+      <div id="timestamp" class="timestamp">Last updated: --:--:--</div>
+    </div>
+  </main>
+
+  <script>
+    // Mobile sidebar toggle
+    const sidebarToggle = document.getElementById('sidebarToggle');
+    const sidebar = document.getElementById('sidebar');
+
+    sidebarToggle.addEventListener('click', () => {
+      sidebar.classList.toggle('active');
+    });
+
+    // Gradient follow cursor with smooth interpolation
+    let currentX = 50;
+    let currentY = 50;
+    let targetX = 50;
+    let targetY = 50;
+
+    document.addEventListener('mousemove', (e) => {
+      targetX = (e.clientX / window.innerWidth) * 100;
+      targetY = (e.clientY / window.innerHeight) * 100;
+    });
+
+    function updateGradient() {
+      currentX += (targetX - currentX) * 0.05;
+      currentY += (targetY - currentY) * 0.05;
+      
+      document.body.style.setProperty('--x', `${currentX}%`);
+      document.body.style.setProperty('--y', `${currentY}%`);
+      
+      requestAnimationFrame(updateGradient);
+    }
+
+    updateGradient();
+
+    // Enhanced image and status updates
+    const cameraFeedContainer = document.getElementById('cameraFeedContainer');
+    const statusContainer = document.getElementById('statusContainer');
+
+    function updateImage() {
+      const img = document.getElementById('cameraFeed');
+      cameraFeedContainer.classList.add('loading');
+      
+      const newImage = new Image();
+      newImage.src = '/static/latest.jpg?t=' + new Date().getTime();
+      
+      newImage.onload = () => {
+        img.src = newImage.src;
+        cameraFeedContainer.classList.remove('loading');
+      };
+
+      newImage.onerror = () => {
+        console.error('Failed to load new image');
+        cameraFeedContainer.classList.remove('loading');
+      };
+    }
+
+    function updateStatus() {
+      fetch('/status')
+        .then(response => response.json())
+        .then(data => {
+          const statusText = document.getElementById('statusText');
+          const statusIndicator = document.getElementById('statusIndicator');
+          const timestamp = document.getElementById('timestamp');
+
+          statusText.textContent = data.detected ? 'PERSON Detected' : 'No PERSON Detected';
+          statusIndicator.className = 'status-indicator' + (data.detected ? ' active' : '');
+          statusContainer.classList.toggle('face-detected', data.detected);
+          timestamp.textContent = data.timestamp ? `Last updated: ${data.timestamp}` : 'Last updated: --:--:--';
+        })
+        .catch(error => {
+          console.error('Error updating status:', error);
+        });
+    }
+
+    // Touch support for mobile devices
+    document.addEventListener('touchmove', (e) => {
+      if (e.touches.length > 0) {
+        const touch = e.touches[0];
+        targetX = (touch.clientX / window.innerWidth) * 100;
+        targetY = (touch.clientY / window.innerHeight) * 100;
+      }
+    }, { passive: true });
+
+    // Update every 2 seconds
+    setInterval(() => {
+      updateImage();
+      updateStatus();
+    }, 2000);
+
+    // Initial update
+    updateImage();
+    updateStatus();
+  </script>
+</body>
+</html>
